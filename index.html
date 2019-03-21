@@ -60,10 +60,45 @@
 			border: 3px black solid;
 			float:left;
 		}
+		.gameover{
+			position: absolute;
+		    left: 42px;
+		    z-index: 1;
+		    top: 111px;
+		    font-size: 42px;
+		    color: red;
+		    background-color: rgba(0,0,0,0.5);
+		}
+		.gameover2{
+			position: absolute;
+		    left: 46px;
+		    z-index: 1;
+		    top: 208px;
+		    font-size: 42px;
+		    color: red;
+		    background-color: rgba(0,0,0,0.5);
+		}
+		.hidden{
+			display: none;
+		}
 	</style>
 </head>
 <body>
 	<div id="jogo">
+	</div>
+	<div>
+		<div id="score">Score:
+		</div>
+		<div id="combo">Combo:
+		</div>
+		<div id="speed">Speed:
+		</div>
+	</div>
+	<div class="gameover hidden">
+		GAME
+	</div>
+	<div class="gameover2 hidden">
+		OVER
 	</div>
 </body>
 </html>
