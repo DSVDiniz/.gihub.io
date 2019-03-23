@@ -213,8 +213,6 @@ function mainLoop(timestamp) {
     requestAnimationFrame(mainLoop);
 }
 
-requestAnimationFrame(mainLoop);
-
 function iniciar()
 {
 	tabuleiro.matriz = [];
@@ -240,6 +238,7 @@ function iniciar()
 	}
 	tabuleiro.inicioDeJogo = false;
 	iniciar_renderer(tabuleiro);
+	requestAnimationFrame(mainLoop);
 }
 
 function iniciar_renderer(tabuleiro)
