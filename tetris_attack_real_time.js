@@ -8,8 +8,8 @@ const TAMANHO_MIN_COMBINACAO 	= 3;
 
 const LINHA_INICIAL_BLOCOS		= 5;
 
-const TEMPO_NOVALINHA_INICIAL	= 7000;
-const REDUCAO_TEMPO				= 500;		
+const TEMPO_NOVALINHA			= 1000;
+const SPEED_INICIAL				= 1;		
 
 const NUM_PECAS 				= 6;
 
@@ -31,14 +31,27 @@ const CLASS_BLOCO_VAZIO 		= "bloco-vazio";
 
 const CURSOR_CLASS				= "selecionado";
 
+let lastFrameTimeMs = 0;
+let maxFPS = 60;
+let delta = 0;
+let timestep = 1000 / 60;
+let fps = 60;
+let framesThisSecond = 0;
+let lastFpsUpdate = 0;
+
 let renderDiv;
+let fpsDiv;
+let scoreDiv;
+let comboDiv;
+let speedDiv;
 let tabuleiro = 
 {
 	fimDeJogo: false,
+	inicioDeJogo: true,
 	combo: 0,
 	pontos: 0,
-	tempoInsercao: 7000,
-	adicionarNovaLinha: false,
+	speed: SPEED_INICIAL,
+	tempoParaLinha: TEMPO_NOVALINHA,
 	dimensoes:
 	{
 		x: 6,
@@ -62,7 +75,7 @@ function input(e)
 	if(!e)
 		e = window.event;
 	let code;
-	if(e.charCode && e.keyCode ==0)
+	if(e.charCode && e.keyCode === 0)
 		code = e.charCode;
 	else
 		code = e.keyCode;
@@ -89,8 +102,15 @@ function input(e)
 			tabuleiro.cursor.trocarBloco = true;
 		break;
 	}
+}
+
+function update(delta) 
+{
 	if(tabuleiro.cursor.proxDirecao !== PARADO)
+	{
 		tabuleiro.cursor = movimentar(tabuleiro.cursor, tabuleiro.dimensoes);
+		tabuleiro.cursor.proxDirecao = PARADO;
+	}
 	if(tabuleiro.cursor.trocarBloco)
 	{
 		tabuleiro.cursor.trocarBloco = false;
@@ -112,64 +132,21 @@ function input(e)
 		}
 	}
 
-	if(tabuleiro.adicionarNovaLinha)
+	tabuleiro.tempoParaLinha -= tabuleiro.speed;
+	if(tabuleiro.tempoParaLinha <= 0)
 	{
 		tabuleiro.fimDeJogo = adicionaLinha(tabuleiro);
-		tabuleiro.adicionarNovaLinha = false;
-	}
-	renderizar(renderDiv, tabuleiro);
-}
-
-let intervaloInserirLinhas = setInterval(ligarAdicionarLinha, tabuleiro.tempoInsercao);
-function ligarAdicionarLinha() 
-{
-	tabuleiro.adicionarNovaLinha = true;
-	if(tabuleiro.tempoInsercao > 500)
-		tabuleiro.tempoInsercao -= 500;
-	clearInterval(intervaloInserirLinhas);
-	intervaloInserirLinhas = setInterval(ligarAdicionarLinha, tabuleiro.tempoInsercao);
-}
-
-function iniciar()
-{
-	tabuleiro.matriz = [];
-	for(let i=0; i < tabuleiro.dimensoes.x; i++)
-	{
-		tabuleiro.matriz.push([]);
-		for(let j=0; j < tabuleiro.dimensoes.y; j++)
-		{
-			if(j < LINHA_INICIAL_BLOCOS)
-				tabuleiro.matriz[i].push(randomTile(NUM_PECAS));
-			else
-				tabuleiro.matriz[i].push(BLOCO_VAZIO);
-		}
-	}
-	let blocosParaRemover = checkCombinacoes(tabuleiro);
-	removerBlocos(tabuleiro, blocosParaRemover);
-	gravidade(tabuleiro);
-	iniciar_renderer(tabuleiro);
-}
-
-function iniciar_renderer(tabuleiro)
-{
-	renderDiv = document.getElementById("jogo");
-
-	for(let i=0; i < tabuleiro.dimensoes.x; i++)
-	{
-		let linha = document.createElement("div");
-		linha.classList.add("linha");
-		renderDiv.appendChild(linha);
-		for(let j=0; j < tabuleiro.dimensoes.y; j++)
-		{
-			let bloco = document.createElement("div");
-			bloco.classList.add(CLASS_BLOCO_VAZIO);
-			renderDiv.children[i].appendChild(bloco);
-		}
+		tabuleiro.tempoParaLinha = TEMPO_NOVALINHA;
+		tabuleiro.speed+=0.2;
 	}
 }
 
-function renderizar(renderDiv, tabuleiro)
+function draw(renderDiv, tabuleiro, interp) 
 {
+    fpsDiv.textContent = Math.round(fps) + ' FPS';
+    scoreDiv.textContent = "Score: " + tabuleiro.pontos;
+    comboDiv.textContent = "Combo: " + tabuleiro.combo;
+    speedDiv.textContent = "Speed: " + tabuleiro.speed.toFixed(1);
 	for(let i=0; i < tabuleiro.dimensoes.x; i++)
 	{
 		for(let j=0; j < tabuleiro.dimensoes.y; j++)
@@ -193,6 +170,98 @@ function renderizar(renderDiv, tabuleiro)
 	cursor2.classList.add(CURSOR_CLASS);
 
 	checkFimDeJogo(renderDiv, tabuleiro);
+}
+
+function begin() {}//preframe
+
+function end(fps) {}//posframe
+
+function mainLoop(timestamp) {
+    if (timestamp < lastFrameTimeMs + (1000 / maxFPS)) {
+        requestAnimationFrame(mainLoop);
+        return;
+    }
+    delta += timestamp - lastFrameTimeMs;
+    lastFrameTimeMs = timestamp;
+
+    begin(timestamp, delta);
+
+    if (timestamp > lastFpsUpdate + 1000) 
+    {
+        fps = 0.25 * framesThisSecond + 0.75 * fps;
+
+        lastFpsUpdate = timestamp;
+        framesThisSecond = 0;
+    }
+    framesThisSecond++;
+
+    let numUpdateSteps = 0;
+    while (delta >= timestep) 
+    {
+        update(timestep);
+        delta -= timestep;
+        //numUpdateSteps++;
+        if (++numUpdateSteps >= 240) 
+        {
+            delta = 0;
+            break;
+        }
+    }
+
+    draw(renderDiv, tabuleiro, delta / timestep);
+    end(fps);
+    requestAnimationFrame(mainLoop);
+}
+
+requestAnimationFrame(mainLoop);
+
+function iniciar()
+{
+	tabuleiro.matriz = [];
+	for(let i=0; i < tabuleiro.dimensoes.x; i++)
+	{
+		tabuleiro.matriz.push([]);
+		for(let j=0; j < tabuleiro.dimensoes.y; j++)
+		{
+			if(j < LINHA_INICIAL_BLOCOS)
+				tabuleiro.matriz[i].push(randomTile(NUM_PECAS));
+			else
+				tabuleiro.matriz[i].push(BLOCO_VAZIO);
+		}
+	}
+	let mudouAlgo = true;
+	while(mudouAlgo)
+	{
+		mudouAlgo = false;
+		let blocosParaRemover = checkCombinacoes(tabuleiro);
+		let removeuBlocos = removerBlocos(tabuleiro, blocosParaRemover);
+		let gravidadeAfetou = gravidade(tabuleiro);
+		mudouAlgo = removeuBlocos || gravidadeAfetou;
+	}
+	tabuleiro.inicioDeJogo = false;
+	iniciar_renderer(tabuleiro);
+}
+
+function iniciar_renderer(tabuleiro)
+{
+	renderDiv = document.getElementById("jogo");
+	fpsDiv = document.getElementById('fpsDisplay');
+	scoreDiv = document.getElementById('score');
+	comboDiv = document.getElementById('combo');
+	speedDiv = document.getElementById('speed');
+
+	for(let i=0; i < tabuleiro.dimensoes.x; i++)
+	{
+		let linha = document.createElement("div");
+		linha.classList.add("linha");
+		renderDiv.appendChild(linha);
+		for(let j=0; j < tabuleiro.dimensoes.y; j++)
+		{
+			let bloco = document.createElement("div");
+			bloco.classList.add(CLASS_BLOCO_VAZIO);
+			renderDiv.children[i].appendChild(bloco);
+		}
+	}
 }
 
 function getBloco(jogo,x,y)
@@ -281,7 +350,7 @@ function checarLimites(x, y, lim)
 function movimentar(cursor, lim)
 {
 	if(!checarLimites(cursor.x + cursor.proxDirecao[0] , cursor.y + cursor.proxDirecao[1], lim))
-		return;
+		return cursor;
 	else
 	{
 		cursor.x += cursor.proxDirecao[0];
@@ -315,14 +384,14 @@ function checkFimDeJogo(renderDiv, tabuleiro)
 	}
 }
 
-function marcarBlocosParaRemover(tabuleiro, blocosIguais,blocosParaRemover)
+function marcarBlocosParaRemover(tabuleiro, blocosIguais, blocosParaRemover)
 {
 	if(blocosIguais.length >= TAMANHO_MIN_COMBINACAO)
 	{
 		pontuar(tabuleiro, blocosIguais);
 		return blocosParaRemover.concat(blocosIguais);
 	}
-	return [];
+	return blocosParaRemover.concat([]);
 }
 
 function checkCombinacoes(tabuleiro)
@@ -405,9 +474,10 @@ function removerBlocos(tabuleiro, blocosParaRemover)
 	return removeu;
 }
 
-function pontuar(listaBlocosIguais, tabuleiro)
+function pontuar(tabuleiro, listaBlocosIguais)
 {
-	tabuleiro.pontos += 10 *listaBlocosIguais.length;
+	if(!tabuleiro.inicioDeJogo)
+		tabuleiro.pontos += 10 *listaBlocosIguais.length * (tabuleiro.combo+1);
 }
 
 function gravidade(tabuleiro)
